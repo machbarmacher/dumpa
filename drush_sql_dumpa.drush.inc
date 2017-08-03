@@ -69,7 +69,8 @@ function drush_sql_dumpa_dump() {
 
 function _drush_sql_dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
   $cmd = _drush_sql_dumpa_cmd($sql, $table, FALSE);
-  if (!$return = drush_op_system($cmd)) {
+  $file_escaped = drush_escapeshellarg("$dir/$table.sql");
+  if (!$return = drush_op_system("($cmd) > $file_escaped")) {
     drush_log(dt('Table structure dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
   }
   else {
@@ -80,7 +81,8 @@ function _drush_sql_dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
 
 function _drush_sql_dumpa_dump_data($sql, $dir, $table) {
   $cmd = _drush_sql_dumpa_cmd($sql, $table, FALSE);
-  if (!$return = drush_op_system($cmd)) {
+  $file_escaped = drush_escapeshellarg("$dir/$table.txt");
+  if (!$return = drush_op_system("($cmd) > $file_escaped")) {
     drush_log(dt('Table data dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
   }
   else {
@@ -90,7 +92,7 @@ function _drush_sql_dumpa_dump_data($sql, $dir, $table) {
 }
 
 function _drush_sql_dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
-// @see \Drush\Sql\Sqlmysql::dumpCmd
+  // @see \Drush\Sql\Sqlmysql::dumpCmd
   $cmd = 'mysqldump ';
   // DB name.
   $cmd .= str_replace('--database=', ' ', $sql->creds());
