@@ -1,0 +1,15 @@
+{
+  "name": "machbarmacher/sql-dumpa",
+  "description": "Drush single file dumper.",
+  "type": "drupal-drush",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "authors": [
+    {
+      "name": "Axel Rutz",
+      "email": "axel.rutz@machbarmacher.net"
+    }
+  ],
+  "require": {
+  }
+}
