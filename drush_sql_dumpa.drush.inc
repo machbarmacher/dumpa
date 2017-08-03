@@ -3,6 +3,8 @@
  * @file drush_sql_dumpa.drush.inc
  */
 
+use Drush\Log\LogLevel;
+
 /**
  * Implements hook_drush_command().
  */
@@ -13,12 +15,34 @@ function drush_sql_dumpa_drush_command() {
     'callback' => 'drush_sql_dumpa_dump',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Dump DB to single files.',
-    'options' => [
+    'options' => _drush_sql_dumpa_table_selection_options() + [
+      'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
+      'site' => 'Site to use in default result directory. Defaults to "default".',
+    ],
+  );
+
+  $items['sql-restora'] = array(
+    'callback' => 'drush_sql_dumpa_restore',
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
+    'description' => 'Restore DB from single files.',
+    'options' => _drush_sql_dumpa_table_selection_options() + [
       'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
       'site' => 'Site to use in default result directory. Defaults to "default".',
     ],
   );
   return $items;
+}
+
+function _drush_sql_dumpa_table_selection_options() {
+  // Copy of drush_sql_get_table_selection_options().
+  return array(
+    'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
+    'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
+    'tables-key' => 'A key in the $tables array. Optional.',
+    'skip-tables-list' => 'A comma-separated list of tables to exclude completely. Optional.',
+    'structure-tables-list' => 'A comma-separated list of tables to include for structure, but not data. Optional.',
+    'tables-list' => 'A comma-separated list of tables to transfer. Optional.',
+  );
 }
 
 /**
@@ -106,4 +130,79 @@ function _drush_sql_dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
   }
   $cmd .= " $table";
   return $cmd;
+}
+
+function drush_sql_dumpa_restore() {
+  $sql = drush_sql_get_class();
+  // @todo Assert mysql.
+
+  $site = drush_get_option('site', 'default');
+  $dir = drush_get_option('result-dir', "../private/_db_$site");
+
+  $sql_files = _drush_sql_dumpa_files($dir, '.sql');
+  $txt_files = _drush_sql_dumpa_files($dir, '.txt');
+
+  // Calculate $tables and $data_tables.
+  $table_selection = $sql->get_expanded_table_selection();
+  $tables = $table_selection['tables']
+    ?: $sql->listTables();
+  $skip_tables = $table_selection['skip'];
+  $tables = array_diff($tables, $skip_tables);
+  $data_tables = array_diff($tables, $table_selection['structure']);
+
+  // Import all table structure in one command.
+  // We use a named pipe to feed all sql into one query.
+  // SQL class does not allow to have multiple input files.
+  $fifo = _drush_sql_dumpa_fifo();
+  $cmd = "cat ";
+  foreach (array_intersect_key($sql_files, array_flip($tables)) as $file) {
+    $cmd .= " " . drush_escapeshellarg($file);
+  }
+  $cmd .= ">" . drush_escapeshellarg($fifo);
+  if ($success = drush_op_system($cmd)) {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
+  }
+  if ($success = $sql->query(NULL, $fifo)) {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import.'));
+  }
+  unlink($fifo);
+
+  // Import all table data in one command.
+  // @link https://dev.mysql.com/doc/refman/5.7/en/reloading-delimited-text-dumps.html
+  $cmd = "mysqlimport ";
+  // DB name.
+  $cmd .= str_replace('--database=', ' ', $sql->creds());
+  $cmd .= ' --fields-terminated-by="," --fields-enclosed-by="\"" --lines-terminated-by="\r\n"';
+  foreach (array_intersect_key($txt_files, array_flip($data_tables)) as $file) {
+    $cmd .= " " . drush_escapeshellarg($file);
+  }
+  if (!$success = drush_op_system($cmd)) {
+    drush_log(dt('All table data restored'), LogLevel::SUCCESS);
+  }
+  else {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('All table data restore failed.'));
+  }
+  return TRUE;
+}
+
+function _drush_sql_dumpa_fifo() {
+  // Adapted from drush_tempdir()
+  $tmp = drush_trim_path(drush_find_tmp());
+  $tmp .= '/' . 'drush_fifo_' . uniqid(time() . '_');
+
+  posix_mkfifo($tmp, 0600);
+  drush_register_file_for_deletion($tmp);
+
+  return $tmp;
+}
+
+function _drush_sql_dumpa_files($dir, $suffix) {
+  $files = glob("$dir/*.$suffix");
+  $indexed_files = [];
+  foreach ($files as $file) {
+    $basename = basename($file);
+    $index = substr($basename, -strlen($suffix));
+    $indexed_files[$index] = $file;
+  }
+  return $indexed_files;
 }
