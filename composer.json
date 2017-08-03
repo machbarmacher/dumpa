@@ -1,5 +1,5 @@
 {
-  "name": "machbarmacher/sql-dumpa",
+  "name": "machbarmacher/dumpa",
   "description": "Drush single file dumper.",
   "type": "drupal-drush",
   "minimum-stability": "dev",
