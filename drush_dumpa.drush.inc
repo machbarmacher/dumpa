@@ -11,7 +11,7 @@ use Drush\Log\LogLevel;
 function drush_dumpa_drush_command() {
   $items = array();
 
-  $items['sql-dumpa'] = array(
+  $items['dumpa'] = array(
     'callback' => 'drush_dumpa_dump',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Dump DB to single files.',
@@ -21,7 +21,7 @@ function drush_dumpa_drush_command() {
     ],
   );
 
-  $items['sql-restora'] = array(
+  $items['restora'] = array(
     'callback' => 'drush_dumpa_restore',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Restore DB from single files.',
