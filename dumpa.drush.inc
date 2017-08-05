@@ -222,7 +222,7 @@ function _dumpa_files($dir, $suffix) {
   $indexed_files = [];
   foreach ($files as $file) {
     $basename = basename($file);
-    $index = substr($basename, strlen($basename) - strlen($suffix));
+    $index = substr($basename, 0, -strlen($suffix));
     $indexed_files[$index] = $file;
   }
   return $indexed_files;
