@@ -123,14 +123,15 @@ function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
   $cmd = 'mysqldump ';
   // DB name.
   $cmd .= str_replace('--database=', ' ', $sql->creds());
-  // Structure only.
-  $cmd .= " --no-data";
-  $cmd .= ' --no-autocommit --single-transaction --opt -Q';
-  // Ordered dump.
-  $cmd .= ' --skip-extended-insert --order-by-primary';
   if ($csv) {
     $cmd .= ' --fields-terminated-by="," --fields-enclosed-by="\"" --lines-terminated-by="\r\n"';
   }
+  else {
+    $cmd .= " --no-data";
+  }
+  $cmd .= ' --no-autocommit --single-transaction --opt -Q';
+  // Ordered dump.
+  $cmd .= ' --skip-extended-insert --order-by-primary';
   $cmd .= " $table";
   return $cmd;
 }
