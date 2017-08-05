@@ -63,7 +63,9 @@ function _dumpa_table_selection_options() {
 function dumpa_dump() {
   // @see drush_sql_dump(), @see \Drush\Sql\SqlBase::dump()
   $sql = drush_sql_get_class();
-  // @todo Assert mysql.
+  if (!$sql instanceof \Drush\Sql\Sqlmysql) {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can only work with mysql currently.'));
+  }
   $tmp = drush_tempdir();
 
   $site = drush_get_option('site', 'default');
@@ -138,7 +140,9 @@ function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
 
 function dumpa_restore() {
   $sql = drush_sql_get_class();
-  // @todo Assert mysql.
+  if (!$sql instanceof \Drush\Sql\Sqlmysql) {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can only work with mysql currently.'));
+  }
 
   $site = drush_get_option('site', 'default');
   $dir = drush_get_option('result-dir', "../private/_db_$site");
