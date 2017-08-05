@@ -124,7 +124,7 @@ function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
   $cmd .= str_replace('--database=', ' ', $sql->creds());
   // Structure only.
   $cmd .= " --no-data";
-  $cmd -= ' --no-autocommit --single-transaction --opt -Q';
+  $cmd .= ' --no-autocommit --single-transaction --opt -Q';
   // Ordered dump.
   $cmd .= ' --skip-extended-insert --order-by-primary';
   if ($csv) {
