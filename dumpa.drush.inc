@@ -85,7 +85,7 @@ function dumpa_dump() {
 
   // Move files and keep track of them.
   $source_files = glob("$tmp/*.sql");
-  $keep_files = [];
+  $moved_files = [];
   foreach ($source_files as $source_file) {
     $base_filename = basename($source_file);
     $destination_file = "$dir/" . $base_filename;
@@ -94,12 +94,12 @@ function dumpa_dump() {
     if (!$success) {
       return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not copy file: !file', ['!file' => $base_filename]));
     }
-    $keep_files[] = $destination_file;
+    $moved_files[] = $destination_file;
   }
   // Drop other files.
   if (drush_get_option('drop', TRUE)) {
     $destination_files = glob("$dir/*.sql");
-    foreach (array_diff($destination_files, $keep_files) as $destination_file) {
+    foreach (array_diff($destination_files, $moved_files) as $destination_file) {
       // Use drush_op to respect --simulate.
       $success = drush_op('unlink', $destination_file);
       if (!$success) {
@@ -118,9 +118,10 @@ function _dumpa_dump_table(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data_too)
 function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data) {
   $cmd = _dumpa_cmd($sql, $table, $dump_data);
   $component = $dump_data ? 'data' : 'structure';
-  $file_escaped = drush_escapeshellarg("$dir/$table.{$component}.sql");
+  $cmd .= ' >' . drush_escapeshellarg("$dir/$table.{$component}.sql");
   $t_args = array('!table' => $table, '!component' => $component);
-  if (!$return = drush_op_system("($cmd) > $file_escaped")) {
+  $success = drush_op_system($cmd);
+  if (!$success) {
     drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
   else {
@@ -182,15 +183,15 @@ function dumpa_restore() {
     $restored_tables[] = $name;
   }
   $cmd .= ">" . drush_escapeshellarg($fifo);
-  if ($success = drush_op_system($cmd)) {
+  if (!$success = drush_op_system($cmd)) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
   }
-  if ($success = $sql->query(NULL, $fifo)) {
+  if (!$success = $sql->query(NULL, $fifo)) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import.'));
   }
   unlink($fifo);
 
-  // @fixme Drop tables not in backup (and not excluded).
+  // Drop tables not restored (and not excluded).
   if (drush_get_option('drop', TRUE)) {
     $tables_to_drop = array_diff($tables, $restored_tables);
     drush_log(dt('Dropping tables: !tables', ['!tables' => implode(', ', $tables_to_drop)]));
