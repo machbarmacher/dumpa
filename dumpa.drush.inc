@@ -101,7 +101,7 @@ function dumpa_dump() {
     $destination_files = glob("$dir/*.sql");
     foreach (array_diff($destination_files, $keep_files) as $destination_file) {
       // Use drush_op to respect --simulate.
-      $success = drush_op('unlink');
+      $success = drush_op('unlink', $destination_file);
       if (!$success) {
         return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not delete file: !file', ['!file' => $destination_file]));
       }
