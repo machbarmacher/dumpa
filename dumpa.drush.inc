@@ -121,7 +121,8 @@ function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data)
   $cmd .= ' >' . drush_escapeshellarg("$dir/$table.{$component}.sql");
   $t_args = array('!table' => $table, '!component' => $component);
   // No need to capture output.
-  $success = drush_op_system($cmd);
+  // Mind that drush_op_system return code is 0 on success.
+  $success = !drush_op_system($cmd);
   if (!$success) {
     drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
@@ -178,7 +179,7 @@ function dumpa_restore() {
   // SQL class does not allow to have multiple input files.
   $restored_tables = [];
   $fifo = _dumpa_fifo();
-  $cmd = "cat ";
+  $cmd = "cat";
   foreach (array_intersect_key($structure_files, array_flip($tables)) as $name => $file) {
     $cmd .= " " . drush_escapeshellarg($file);
     $restored_tables[] = $name;
@@ -187,12 +188,15 @@ function dumpa_restore() {
     $cmd .= " " . drush_escapeshellarg($file);
     $restored_tables[] = $name;
   }
-  $cmd .= ">" . drush_escapeshellarg($fifo);
+  $cmd .= " >" . drush_escapeshellarg($fifo);
   // No need to capture output, also fifo does not work with drush_shell_exec().
-  if (!$success = drush_op_system($cmd)) {
+  // Mind that drush_op_system return code is 0 on success.
+  $success = !drush_op_system($cmd);
+  if (!$success) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
   }
-  if (!$success = $sql->query(NULL, $fifo)) {
+  $success = $sql->query(NULL, $fifo);
+  if (!$success) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import.'));
   }
 
