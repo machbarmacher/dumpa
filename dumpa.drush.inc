@@ -188,12 +188,17 @@ function dumpa_restore() {
     $cmd .= " " . drush_escapeshellarg($file);
     $restored_tables[] = $name;
   }
-  $cmd .= " >" . drush_escapeshellarg($fifo);
+  // Use tee hack to make php terminate.
+  $cmd .= " |tee " . drush_escapeshellarg($fifo) . ' >/dev/null &';
   // No need to capture output, also fifo does not work with drush_shell_exec().
   // Mind that drush_op_system return code is 0 on success.
   $success = !drush_op_system($cmd);
   if (!$success) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
+  }
+  if (drush_get_context('DRUSH_SIMULATE')) {
+    // Make sure the pipe is written to. Use tee hack to make php terminate.
+    system("cat </dev/null |tee " . drush_escapeshellarg($fifo) . ' >/dev/null &');
   }
   $success = $sql->query(NULL, $fifo);
   if (!$success) {
@@ -201,8 +206,8 @@ function dumpa_restore() {
   }
 
   // Drop tables not restored (and not excluded).
-  if (drush_get_option('drop', TRUE)) {
-    $tables_to_drop = array_diff($tables, $restored_tables);
+  $tables_to_drop = array_diff($tables, $restored_tables);
+  if ($tables_to_drop && drush_get_option('drop', TRUE)) {
     drush_log(dt('Dropping tables: !tables', ['!tables' => implode(', ', $tables_to_drop)]));
     $sql->drop($tables_to_drop);
   }
