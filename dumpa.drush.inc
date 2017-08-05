@@ -120,7 +120,8 @@ function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data)
   $component = $dump_data ? 'data' : 'structure';
   $cmd .= ' >' . drush_escapeshellarg("$dir/$table.{$component}.sql");
   $t_args = array('!table' => $table, '!component' => $component);
-  $success = drush_shell_exec($cmd);
+  // No need to capture output.
+  $success = drush_op_system($cmd);
   if (!$success) {
     drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
@@ -160,6 +161,10 @@ function dumpa_restore() {
   $structure_files = _dumpa_files($dir, '.structure.sql');
   $data_files = _dumpa_files($dir, '.data.sql');
 
+  if (!$structure_files && !$data_files) {
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Dumpa directory is empty.'));
+  }
+
   // Calculate $tables and $data_tables.
   $table_selection = $sql->get_expanded_table_selection();
   $tables = $table_selection['tables']
@@ -183,7 +188,8 @@ function dumpa_restore() {
     $restored_tables[] = $name;
   }
   $cmd .= ">" . drush_escapeshellarg($fifo);
-  if (!$success = drush_shell_exec($cmd)) {
+  // No need to capture output, also fifo does not work with drush_shell_exec().
+  if (!$success = drush_op_system($cmd)) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
   }
   if (!$success = $sql->query(NULL, $fifo)) {
@@ -212,7 +218,7 @@ function _dumpa_fifo() {
 }
 
 function _dumpa_files($dir, $suffix) {
-  $files = glob("$dir/*.$suffix");
+  $files = glob("$dir/*$suffix");
   $indexed_files = [];
   foreach ($files as $file) {
     $basename = basename($file);
