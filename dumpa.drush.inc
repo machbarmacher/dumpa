@@ -82,30 +82,28 @@ function dumpa_dump() {
       return FALSE;
     }
   }
-  if (!drush_get_context('DRUSH_SIMULATE')) {
-    $source_files = glob("$tmp/*.sql");
 
-    // Move files and keep track of them.
-    $keep_files = [];
-    foreach ($source_files as $source_file) {
-      $base_filename = basename($source_file);
-      $destination_file = "$dir/" . $base_filename;
-      // Looks like drush_move_dir() also works for files.
-      $success = drush_move_dir($source_file, $destination_file);
-      if (!$success) {
-        return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not copy file: !file', ['!file' => $base_filename]));
-      }
-      $keep_files[] = $destination_file;
+  // Move files and keep track of them.
+  $source_files = glob("$tmp/*.sql");
+  $keep_files = [];
+  foreach ($source_files as $source_file) {
+    $base_filename = basename($source_file);
+    $destination_file = "$dir/" . $base_filename;
+    // Looks like drush_move_dir() also works for files.
+    $success = drush_move_dir($source_file, $destination_file);
+    if (!$success) {
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not copy file: !file', ['!file' => $base_filename]));
     }
-    // Drop other files.
-    if (drush_get_option('drop', TRUE)) {
-      $destination_files = glob("$dir/*.sql");
-      foreach (array_diff($destination_files, $keep_files) as $destination_file) {
-        // Use drush_op to respect --simulate.
-        $success = drush_op('unlink');
-        if (!$success) {
-          return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not delete file: !file', ['!file' => $destination_file]));
-        }
+    $keep_files[] = $destination_file;
+  }
+  // Drop other files.
+  if (drush_get_option('drop', TRUE)) {
+    $destination_files = glob("$dir/*.sql");
+    foreach (array_diff($destination_files, $keep_files) as $destination_file) {
+      // Use drush_op to respect --simulate.
+      $success = drush_op('unlink');
+      if (!$success) {
+        return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not delete file: !file', ['!file' => $destination_file]));
       }
     }
   }
