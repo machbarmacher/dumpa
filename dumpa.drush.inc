@@ -90,7 +90,7 @@ function dumpa_dump() {
     $base_filename = basename($source_file);
     $destination_file = "$dir/" . $base_filename;
     // Looks like drush_move_dir() also works for files.
-    $success = drush_move_dir($source_file, $destination_file);
+    $success = drush_move_dir($source_file, $destination_file, TRUE);
     if (!$success) {
       return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not copy file: !file', ['!file' => $base_filename]));
     }
