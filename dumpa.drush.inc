@@ -55,7 +55,8 @@ function _dumpa_table_selection_options() {
  * work the DB needs the permission to access and modify any files
  * on the server so a sane admin won't give this to mortal users
  * in a shared hosting environment. Sigh.
- * So we simulate this in userland, by dumping tables to separate files.
+ * So we simulate this in userland, by dumping tables to separate
+ * files, and using sql for data too.
  *
  * @link https://stackoverflow.com/a/6300583/606859
  * @link https://stackoverflow.com/a/12041241/606859
@@ -79,12 +80,8 @@ function dumpa_dump() {
   $data_tables = array_diff($tables, $table_selection['structure']);
 
   foreach ($tables as $table) {
-    if (!_dumpa_dump_structure($sql, $tmp, $table)) {
-      return FALSE;
-    }
-  }
-  foreach ($data_tables as $table) {
-    if (!_dumpa_dump_data($sql, $tmp, $table)) {
+    $dump_data_too = in_array($table, $data_tables);
+    if (!_dumpa_dump_table($sql, $tmp, $table, $dump_data_too)) {
       return FALSE;
     }
   }
@@ -96,37 +93,32 @@ function dumpa_dump() {
   return TRUE;
 }
 
-function _dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
-  $cmd = _dumpa_cmd($sql, $table, FALSE);
-  $file_escaped = drush_escapeshellarg("$dir/$table.sql");
+function _dumpa_dump_table(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data_too) {
+  return _dumpa_dump_component($sql, $dir, $table, FALSE)
+    && ($dump_data_too ? _dumpa_dump_component($sql, $dir, $table, TRUE) : TRUE);
+}
+
+function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data) {
+  $cmd = _dumpa_cmd($sql, $table, $dump_data);
+  $component = $dump_data ? 'data' : 'structure';
+  $file_escaped = drush_escapeshellarg("$dir/$table.{$component}.sql");
+  $t_args = array('!table' => $table, '!component' => $component);
   if (!$return = drush_op_system("($cmd) > $file_escaped")) {
-    drush_log(dt('Table structure dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
+    drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
   else {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Table structure dump failed: !table', array('!table' => $table)));
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Table !component dump failed: !table', $t_args));
   }
   return TRUE;
 }
 
-function _dumpa_dump_data($sql, $dir, $table) {
-  $cmd = _dumpa_cmd($sql, $table, TRUE);
-  $file_escaped = drush_escapeshellarg("$dir/$table.txt");
-  if (!$return = drush_op_system("($cmd) > $file_escaped")) {
-    drush_log(dt('Table data dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
-  }
-  else {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Table data dump failed: !table', array('!table' => $table)));
-  }
-  return TRUE;
-}
-
-function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
+function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $dump_data) {
   // @see \Drush\Sql\Sqlmysql::dumpCmd
   $cmd = 'mysqldump ';
   // DB name.
   $cmd .= str_replace('--database=', ' ', $sql->creds());
-  if ($csv) {
-    $cmd .= ' --fields-terminated-by="," --fields-enclosed-by="\"" --lines-terminated-by="\r\n"';
+  if ($dump_data) {
+    $cmd .= ' --no-create-info';
   }
   else {
     $cmd .= " --no-data";
