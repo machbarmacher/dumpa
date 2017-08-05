@@ -156,8 +156,8 @@ function dumpa_restore() {
   $site = drush_get_option('site', 'default');
   $dir = drush_get_option('result-dir', "../private/_db_$site");
 
-  $sql_files = _dumpa_files($dir, '.sql');
-  $txt_files = _dumpa_files($dir, '.txt');
+  $structure_files = _dumpa_files($dir, '.structure.sql');
+  $data_files = _dumpa_files($dir, '.data.sql');
 
   // Calculate $tables and $data_tables.
   $table_selection = $sql->get_expanded_table_selection();
@@ -167,14 +167,19 @@ function dumpa_restore() {
   $tables = array_diff($tables, $skip_tables);
   $data_tables = array_diff($tables, $table_selection['structure']);
 
-  // @fixme Drop tables not in backup (and not excluded).
-  // Import all table structure in one command.
+  // Import all sql in one command, first structure, then data.
   // We use a named pipe to feed all sql into one query.
   // SQL class does not allow to have multiple input files.
+  $restored_tables = [];
   $fifo = _dumpa_fifo();
   $cmd = "cat ";
-  foreach (array_intersect_key($sql_files, array_flip($tables)) as $file) {
+  foreach (array_intersect_key($structure_files, array_flip($tables)) as $name => $file) {
     $cmd .= " " . drush_escapeshellarg($file);
+    $restored_tables[] = $name;
+  }
+  foreach (array_intersect_key($data_files, array_flip($tables), array_flip($data_tables)) as $name => $file) {
+    $cmd .= " " . drush_escapeshellarg($file);
+    $restored_tables[] = $name;
   }
   $cmd .= ">" . drush_escapeshellarg($fifo);
   if ($success = drush_op_system($cmd)) {
@@ -185,22 +190,13 @@ function dumpa_restore() {
   }
   unlink($fifo);
 
-  // @fixme Remove this and process .data.sql.
-  // Import all table data in one command.
-  // @link https://dev.mysql.com/doc/refman/5.7/en/reloading-delimited-text-dumps.html
-  $cmd = "mysqlimport ";
-  // DB name.
-  $cmd .= str_replace('--database=', ' ', $sql->creds());
-  $cmd .= ' --fields-terminated-by="," --fields-enclosed-by="\"" --lines-terminated-by="\r\n"';
-  foreach (array_intersect_key($txt_files, array_flip($data_tables)) as $file) {
-    $cmd .= " " . drush_escapeshellarg($file);
+  // @fixme Drop tables not in backup (and not excluded).
+  if (drush_get_option('drop', TRUE)) {
+    $tables_to_drop = array_diff($tables, $restored_tables);
+    drush_log(dt('Dropping tables: !tables', ['!tables' => implode(', ', $tables_to_drop)]));
+    $sql->drop($tables_to_drop);
   }
-  if (!$success = drush_op_system($cmd)) {
-    drush_log(dt('All table data restored'), LogLevel::SUCCESS);
-  }
-  else {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('All table data restore failed.'));
-  }
+
   return TRUE;
 }
 
