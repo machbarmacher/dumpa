@@ -120,7 +120,7 @@ function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data)
   $component = $dump_data ? 'data' : 'structure';
   $cmd .= ' >' . drush_escapeshellarg("$dir/$table.{$component}.sql");
   $t_args = array('!table' => $table, '!component' => $component);
-  $success = drush_op_system($cmd);
+  $success = drush_shell_exec($cmd);
   if (!$success) {
     drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
@@ -183,13 +183,12 @@ function dumpa_restore() {
     $restored_tables[] = $name;
   }
   $cmd .= ">" . drush_escapeshellarg($fifo);
-  if (!$success = drush_op_system($cmd)) {
+  if (!$success = drush_shell_exec($cmd)) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
   }
   if (!$success = $sql->query(NULL, $fifo)) {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import.'));
   }
-  unlink($fifo);
 
   // Drop tables not restored (and not excluded).
   if (drush_get_option('drop', TRUE)) {
