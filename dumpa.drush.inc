@@ -106,7 +106,7 @@ function _dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
 }
 
 function _dumpa_dump_data($sql, $dir, $table) {
-  $cmd = _dumpa_cmd($sql, $table, FALSE);
+  $cmd = _dumpa_cmd($sql, $table, TRUE);
   $file_escaped = drush_escapeshellarg("$dir/$table.txt");
   if (!$return = drush_op_system("($cmd) > $file_escaped")) {
     drush_log(dt('Table data dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
