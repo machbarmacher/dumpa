@@ -1,6 +1,6 @@
 <?php
 /**
- * @file drush_dumpa.drush.inc
+ * @file dumpa.drush.inc
  */
 
 use Drush\Log\LogLevel;
@@ -8,24 +8,26 @@ use Drush\Log\LogLevel;
 /**
  * Implements hook_drush_command().
  */
-function drush_dumpa_drush_command() {
+function dumpa_drush_command() {
   $items = array();
 
-  $items['dumpa'] = array(
-    'callback' => 'drush_dumpa_dump',
+  $items['dumpa-dump'] = array(
+    'aliases' => ['dumpa'],
+    'callback' => 'dumpa_dump',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Dump DB to single files.',
-    'options' => _drush_dumpa_table_selection_options() + [
+    'options' => _dumpa_table_selection_options() + [
       'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
       'site' => 'Site to use in default result directory. Defaults to "default".',
     ],
   );
 
-  $items['restora'] = array(
-    'callback' => 'drush_dumpa_restore',
+  $items['dumpa-restore'] = array(
+    'aliases' => ['restora'],
+    'callback' => 'dumpa_restore',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Restore DB from single files.',
-    'options' => _drush_dumpa_table_selection_options() + [
+    'options' => _dumpa_table_selection_options() + [
       'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
       'site' => 'Site to use in default result directory. Defaults to "default".',
     ],
@@ -33,7 +35,7 @@ function drush_dumpa_drush_command() {
   return $items;
 }
 
-function _drush_dumpa_table_selection_options() {
+function _dumpa_table_selection_options() {
   // Copy of drush_sql_get_table_selection_options().
   return array(
     'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
@@ -58,7 +60,7 @@ function _drush_dumpa_table_selection_options() {
  * @link https://stackoverflow.com/a/6300583/606859
  * @link https://stackoverflow.com/a/12041241/606859
  */
-function drush_dumpa_dump() {
+function dumpa_dump() {
   // @see drush_sql_dump(), @see \Drush\Sql\SqlBase::dump()
   $sql = drush_sql_get_class();
   // @todo Assert mysql.
@@ -75,12 +77,12 @@ function drush_dumpa_dump() {
   $data_tables = array_diff($tables, $table_selection['structure']);
 
   foreach ($tables as $table) {
-    if (!_drush_dumpa_dump_structure($sql, $tmp, $table)) {
+    if (!_dumpa_dump_structure($sql, $tmp, $table)) {
       return FALSE;
     }
   }
   foreach ($data_tables as $table) {
-    if (!_drush_dumpa_dump_data($sql, $tmp, $table)) {
+    if (!_dumpa_dump_data($sql, $tmp, $table)) {
       return FALSE;
     }
   }
@@ -91,8 +93,8 @@ function drush_dumpa_dump() {
   return TRUE;
 }
 
-function _drush_dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
-  $cmd = _drush_dumpa_cmd($sql, $table, FALSE);
+function _dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
+  $cmd = _dumpa_cmd($sql, $table, FALSE);
   $file_escaped = drush_escapeshellarg("$dir/$table.sql");
   if (!$return = drush_op_system("($cmd) > $file_escaped")) {
     drush_log(dt('Table structure dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
@@ -103,8 +105,8 @@ function _drush_dumpa_dump_structure(Drush\Sql\SqlBase $sql, $dir, $table) {
   return TRUE;
 }
 
-function _drush_dumpa_dump_data($sql, $dir, $table) {
-  $cmd = _drush_dumpa_cmd($sql, $table, FALSE);
+function _dumpa_dump_data($sql, $dir, $table) {
+  $cmd = _dumpa_cmd($sql, $table, FALSE);
   $file_escaped = drush_escapeshellarg("$dir/$table.txt");
   if (!$return = drush_op_system("($cmd) > $file_escaped")) {
     drush_log(dt('Table data dumped: !table', array('!table' => $table)), LogLevel::SUCCESS);
@@ -115,7 +117,7 @@ function _drush_dumpa_dump_data($sql, $dir, $table) {
   return TRUE;
 }
 
-function _drush_dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
+function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
   // @see \Drush\Sql\Sqlmysql::dumpCmd
   $cmd = 'mysqldump ';
   // DB name.
@@ -132,15 +134,15 @@ function _drush_dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $csv) {
   return $cmd;
 }
 
-function drush_dumpa_restore() {
+function dumpa_restore() {
   $sql = drush_sql_get_class();
   // @todo Assert mysql.
 
   $site = drush_get_option('site', 'default');
   $dir = drush_get_option('result-dir', "../private/_db_$site");
 
-  $sql_files = _drush_dumpa_files($dir, '.sql');
-  $txt_files = _drush_dumpa_files($dir, '.txt');
+  $sql_files = _dumpa_files($dir, '.sql');
+  $txt_files = _dumpa_files($dir, '.txt');
 
   // Calculate $tables and $data_tables.
   $table_selection = $sql->get_expanded_table_selection();
@@ -153,7 +155,7 @@ function drush_dumpa_restore() {
   // Import all table structure in one command.
   // We use a named pipe to feed all sql into one query.
   // SQL class does not allow to have multiple input files.
-  $fifo = _drush_dumpa_fifo();
+  $fifo = _dumpa_fifo();
   $cmd = "cat ";
   foreach (array_intersect_key($sql_files, array_flip($tables)) as $file) {
     $cmd .= " " . drush_escapeshellarg($file);
@@ -185,7 +187,7 @@ function drush_dumpa_restore() {
   return TRUE;
 }
 
-function _drush_dumpa_fifo() {
+function _dumpa_fifo() {
   // Adapted from drush_tempdir()
   $tmp = drush_trim_path(drush_find_tmp());
   $tmp .= '/' . 'drush_fifo_' . uniqid(time() . '_');
@@ -196,7 +198,7 @@ function _drush_dumpa_fifo() {
   return $tmp;
 }
 
-function _drush_dumpa_files($dir, $suffix) {
+function _dumpa_files($dir, $suffix) {
   $files = glob("$dir/*.$suffix");
   $indexed_files = [];
   foreach ($files as $file) {
