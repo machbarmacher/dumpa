@@ -87,6 +87,7 @@ function dumpa_dump() {
     }
   }
   if (!drush_get_context('DRUSH_SIMULATE')) {
+    // @fixme Ignore .git dir.
     drush_delete_dir($dir);
     drush_move_dir($tmp, $dir);
   }
@@ -152,6 +153,7 @@ function dumpa_restore() {
   $tables = array_diff($tables, $skip_tables);
   $data_tables = array_diff($tables, $table_selection['structure']);
 
+  // @fixme Drop tables not in backup (and not excluded).
   // Import all table structure in one command.
   // We use a named pipe to feed all sql into one query.
   // SQL class does not allow to have multiple input files.
