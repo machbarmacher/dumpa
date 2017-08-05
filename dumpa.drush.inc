@@ -16,10 +16,7 @@ function dumpa_drush_command() {
     'callback' => 'dumpa_dump',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Dump DB to single files.',
-    'options' => _dumpa_table_selection_options() + [
-      'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
-      'site' => 'Site to use in default result directory. Defaults to "default".',
-    ],
+    'options' => _dumpa_common_options(),
   );
 
   $items['dumpa-restore'] = array(
@@ -27,17 +24,17 @@ function dumpa_drush_command() {
     'callback' => 'dumpa_restore',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
     'description' => 'Restore DB from single files.',
-    'options' => _dumpa_table_selection_options() + [
-      'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
-      'site' => 'Site to use in default result directory. Defaults to "default".',
-    ],
+    'options' => _dumpa_common_options(),
   );
   return $items;
 }
 
-function _dumpa_table_selection_options() {
+function _dumpa_common_options() {
   // Copy of drush_sql_get_table_selection_options().
   return array(
+    'drop' => 'Use --no-drop to suppress dropping of additional files / tables.',
+    'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
+    'site' => 'Site to use in default result directory. Defaults to "default".',
     'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
     'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
     'tables-key' => 'A key in the $tables array. Optional.',
@@ -86,9 +83,31 @@ function dumpa_dump() {
     }
   }
   if (!drush_get_context('DRUSH_SIMULATE')) {
-    // @fixme Ignore .git dir.
-    drush_delete_dir($dir);
-    drush_move_dir($tmp, $dir);
+    $source_files = glob("$tmp/*.sql");
+
+    // Move files and keep track of them.
+    $keep_files = [];
+    foreach ($source_files as $source_file) {
+      $base_filename = basename($source_file);
+      $destination_file = "$dir/" . $base_filename;
+      // Looks like drush_move_dir() also works for files.
+      $success = drush_move_dir($source_file, $destination_file);
+      if (!$success) {
+        return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not copy file: !file', ['!file' => $base_filename]));
+      }
+      $keep_files[] = $destination_file;
+    }
+    // Drop other files.
+    if (drush_get_option('drop', TRUE)) {
+      $destination_files = glob("$dir/*.sql");
+      foreach (array_diff($destination_files, $keep_files) as $destination_file) {
+        // Use drush_op to respect --simulate.
+        $success = drush_op('unlink');
+        if (!$success) {
+          return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can not delete file: !file', ['!file' => $destination_file]));
+        }
+      }
+    }
   }
   return TRUE;
 }
@@ -168,6 +187,7 @@ function dumpa_restore() {
   }
   unlink($fifo);
 
+  // @fixme Remove this and process .data.sql.
   // Import all table data in one command.
   // @link https://dev.mysql.com/doc/refman/5.7/en/reloading-delimited-text-dumps.html
   $cmd = "mysqlimport ";
