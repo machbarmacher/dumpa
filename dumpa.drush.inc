@@ -174,38 +174,29 @@ function dumpa_restore() {
   $tables = array_diff($tables, $skip_tables);
   $data_tables = array_diff($tables, $table_selection['structure']);
 
+  // Lock.
+  $sql->query(sprintf('LOCK TABLES %s WRITE', implode(', ', $tables)));
+
   $restored_tables = [];
-  // Import all sql in one command, first structure, then data.
-  // We use a named pipe to feed all sql into one query.
-  // SQL class does not allow to have multiple input files.
-  // $fifo = _dumpa_fifo();
-  // It looks like fifo wont work due to filetype magic in $sql->query.
-  $fifo = drush_tempnam('dumpa-');
-  $cmd = "cat";
   foreach (array_intersect_key($structure_files, array_flip($tables)) as $name => $file) {
-    $cmd .= " " . drush_escapeshellarg($file);
+    $success = $sql->query(NULL, $file);
+    if (!$success) {
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import structure: !table.', ['!table' => $name]));
+    }
     $restored_tables[] = $name;
   }
   foreach (array_intersect_key($data_files, array_flip($tables), array_flip($data_tables)) as $name => $file) {
-    $cmd .= " " . drush_escapeshellarg($file);
-    $restored_tables[] = $name;
+    if (!in_array($name, $restored_tables)) {
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Found data without structure: !table.', ['!table' => $name]));
+    }
+    $success = $sql->query(NULL, $file);
+    if (!$success) {
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import data: !table.', ['!table' => $name]));
+    }
   }
-  // Use tee hack to make php terminate.
-  $cmd .= " |tee " . drush_escapeshellarg($fifo) . ' >/dev/null &';
-  // No need to capture output, also fifo does not work with drush_shell_exec().
-  // Mind that drush_op_system return code is 0 on success.
-  $success = !drush_op_system($cmd);
-  if (!$success) {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not cat data to fifo.'));
-  }
-  if (drush_get_context('DRUSH_SIMULATE')) {
-    // Make sure the pipe is written to. Use tee hack to make php terminate.
-    system("cat </dev/null |tee " . drush_escapeshellarg($fifo) . ' >/dev/null &');
-  }
-  $success = $sql->query(NULL, $fifo);
-  if (!$success) {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import.'));
-  }
+
+  // Unlock
+  $sql->query('UNLOCK TABLES');
 
   // Drop tables not restored (and not excluded).
   $tables_to_drop = array_diff($tables, $restored_tables);
