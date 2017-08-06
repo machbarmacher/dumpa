@@ -174,11 +174,13 @@ function dumpa_restore() {
   $tables = array_diff($tables, $skip_tables);
   $data_tables = array_diff($tables, $table_selection['structure']);
 
+  $restored_tables = [];
   // Import all sql in one command, first structure, then data.
   // We use a named pipe to feed all sql into one query.
   // SQL class does not allow to have multiple input files.
-  $restored_tables = [];
-  $fifo = _dumpa_fifo();
+  // $fifo = _dumpa_fifo();
+  // It looks like fifo wont work due to filetype magic in $sql->query.
+  $fifo = drush_tempnam('dumpa-');
   $cmd = "cat";
   foreach (array_intersect_key($structure_files, array_flip($tables)) as $name => $file) {
     $cmd .= " " . drush_escapeshellarg($file);
