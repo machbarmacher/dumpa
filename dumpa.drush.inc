@@ -178,20 +178,20 @@ function dumpa_restore() {
   $sql->query(sprintf('LOCK TABLES %s WRITE', implode(', ', $tables)));
 
   $restored_tables = [];
-  foreach (array_intersect_key($structure_files, array_flip($tables)) as $name => $file) {
+  foreach (array_intersect_key($structure_files, array_flip($tables)) as $table => $file) {
     $success = $sql->query(NULL, $file);
     if (!$success) {
-      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import structure: !table.', ['!table' => $name]));
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import structure: !table.', ['!table' => $table]));
     }
-    $restored_tables[] = $name;
+    $restored_tables[] = $table;
   }
-  foreach (array_intersect_key($data_files, array_flip($tables), array_flip($data_tables)) as $name => $file) {
-    if (!in_array($name, $restored_tables)) {
-      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Found data without structure: !table.', ['!table' => $name]));
+  foreach (array_intersect_key($data_files, array_flip($tables), array_flip($data_tables)) as $table => $file) {
+    if (!in_array($table, $restored_tables)) {
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Found data without structure: !table.', ['!table' => $table]));
     }
     $success = $sql->query(NULL, $file);
     if (!$success) {
-      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import data: !table.', ['!table' => $name]));
+      return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import data: !table.', ['!table' => $table]));
     }
   }
 
