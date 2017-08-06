@@ -179,6 +179,7 @@ function dumpa_restore() {
 
   $restored_tables = [];
   foreach (array_intersect_key($structure_files, array_flip($tables)) as $table => $file) {
+    drush_log(dt('Restoring structure: !table', ['!table' => $table]));
     $success = $sql->query(NULL, $file);
     if (!$success) {
       return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import structure: !table.', ['!table' => $table]));
@@ -189,6 +190,7 @@ function dumpa_restore() {
     if (!in_array($table, $restored_tables)) {
       return drush_set_error('DRUSH_DUMPA_FAIL', dt('Found data without structure: !table.', ['!table' => $table]));
     }
+    drush_log(dt('Restoring data: !table', ['!table' => $table]));
     $success = $sql->query(NULL, $file);
     if (!$success) {
       return drush_set_error('DRUSH_DUMPA_FAIL', dt('Could not import data: !table.', ['!table' => $table]));
