@@ -124,10 +124,10 @@ function _dumpa_dump_component(Drush\Sql\SqlBase $sql, $dir, $table, $dump_data)
   // Mind that drush_op_system return code is 0 on success.
   $success = !drush_op_system($cmd);
   if (!$success) {
-    drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
+    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Table !component dump failed: !table', $t_args));
   }
   else {
-    return drush_set_error('DRUSH_DUMPA_FAIL', dt('Table !component dump failed: !table', $t_args));
+    drush_log(dt('Table !component dumped: !table', $t_args), LogLevel::SUCCESS);
   }
   return TRUE;
 }
