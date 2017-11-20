@@ -210,17 +210,6 @@ function dumpa_restore() {
   return TRUE;
 }
 
-function _dumpa_fifo() {
-  // Adapted from drush_tempdir()
-  $tmp = drush_trim_path(drush_find_tmp());
-  $tmp .= '/' . 'drush_fifo_' . uniqid(time() . '_');
-
-  posix_mkfifo($tmp, 0600);
-  drush_register_file_for_deletion($tmp);
-
-  return $tmp;
-}
-
 function _dumpa_files($dir, $suffix) {
   $files = glob("$dir/*$suffix");
   $indexed_files = [];
