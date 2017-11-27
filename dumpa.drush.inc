@@ -147,6 +147,7 @@ function _dumpa_cmd(Drush\Sql\SqlBase $sql, $table, $dump_data) {
   $cmd .= ' --no-autocommit --single-transaction --opt -Q';
   // Ordered dump.
   $cmd .= ' --skip-extended-insert --order-by-primary';
+  $cmd .= ' --skip-comments --skip-dump-date';
   $cmd .= " $table";
   return $cmd;
 }
