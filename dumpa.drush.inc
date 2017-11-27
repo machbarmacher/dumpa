@@ -33,7 +33,7 @@ function _dumpa_common_options() {
   // Copy of drush_sql_get_table_selection_options().
   return array(
     'drop' => 'Use --no-drop to suppress dropping of additional files / tables.',
-    'result-dir' => 'Result directory. Defaults to ../private/_db_$site.',
+    'result-dir' => 'Result directory. Defaults to private://_dumpa/$site.',
     'site' => 'Site to use in default result directory. Defaults to "default".',
     'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
     'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
@@ -66,8 +66,9 @@ function dumpa_dump() {
   }
   $tmp = drush_tempdir();
 
-  $site = drush_get_option('site', 'default');
-  $dir = drush_get_option('result-dir', "../private/_db_$site");
+  if (!$dir = _dumpa_dir()) {
+    return drush_set_error('DUMPA', dt('Dumpa needs a --result-dir or configured private files.'));
+  }
 
   // Calculate $tables and $data_tables.
   $table_selection = $sql->get_expanded_table_selection();
@@ -156,8 +157,9 @@ function dumpa_restore() {
     return drush_set_error('DRUSH_DUMPA_FAIL', dt('Can only work with mysql currently.'));
   }
 
-  $site = drush_get_option('site', 'default');
-  $dir = drush_get_option('result-dir', "../private/_db_$site");
+  if (!$dir = _dumpa_dir()) {
+    return drush_set_error('DUMPA', dt('Dumpa needs a --result-dir or configured private files.'));
+  }
 
   $structure_files = _dumpa_files($dir, '.structure.sql');
   $data_files = _dumpa_files($dir, '.data.sql');
@@ -219,4 +221,30 @@ function _dumpa_files($dir, $suffix) {
     $indexed_files[$index] = $file;
   }
   return $indexed_files;
+}
+
+/**
+ * Figure out dir to use.
+ *
+ * @return string|null
+ */
+function _dumpa_dir() {
+  $site = drush_get_option('site', 'default');
+  $dir = drush_get_option('result-dir', _dumpa_default_dir($site));
+  return $dir;
+}
+
+/**
+ * Get default dir if private files are configured.
+ *
+ * @param $site
+ * @return string
+ */
+function _dumpa_default_dir($site) {
+  if (
+    drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION)
+    && ($private = drush_file_get_private())
+  ) {
+    return $private . "/_dumpa/$site";
+  }
 }
