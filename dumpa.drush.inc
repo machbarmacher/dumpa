@@ -34,7 +34,6 @@ function _dumpa_common_options() {
   return array(
     'drop' => 'Use --no-drop to suppress dropping of additional files / tables.',
     'result-dir' => 'Result directory. Defaults to private://_dumpa/$site.',
-    'site' => 'Site to use in default result directory. Defaults to "default".',
     'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
     'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
     'tables-key' => 'A key in the $tables array. Optional.',
@@ -230,22 +229,20 @@ function _dumpa_files($dir, $suffix) {
  * @return string|null
  */
 function _dumpa_dir() {
-  $site = drush_get_option('site', 'default');
-  $dir = drush_get_option('result-dir', _dumpa_default_dir($site));
+  $dir = drush_get_option('result-dir', _dumpa_default_dir());
   return $dir;
 }
 
 /**
  * Get default dir if private files are configured.
  *
- * @param $site
  * @return string
  */
-function _dumpa_default_dir($site) {
+function _dumpa_default_dir() {
   if (
     drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION)
     && ($private = drush_file_get_private())
   ) {
-    return $private . "/_dumpa/$site";
+    return $private . "/_dumpa";
   }
 }
